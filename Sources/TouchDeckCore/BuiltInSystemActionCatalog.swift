@@ -46,7 +46,7 @@ public enum BuiltInSystemActionCatalog {
             id: "volumeSlider",
             name: "Volume Slider",
             symbolName: "speaker.wave.2",
-            supportedSizes: [.medium],
+            supportedSizes: [.medium, .large],
             requiredPermissions: [.automation],
             supportStatus: .requiresPermission
         ),
@@ -57,7 +57,7 @@ public enum BuiltInSystemActionCatalog {
             id: "brightnessSlider",
             name: "Brightness Slider",
             symbolName: "sun.max",
-            supportedSizes: [.medium],
+            supportedSizes: [.medium, .large],
             requiredPermissions: [.accessibility],
             supportStatus: .requiresPermission
         ),
