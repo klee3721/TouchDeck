@@ -54,8 +54,10 @@ public final class ActionDispatcher {
     }
 
     private func activateOrLaunchApp(_ config: AppButtonConfig) {
-        let appURL = config.appPath.map(URL.init(fileURLWithPath:))
-            ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: config.bundleIdentifier)
+        let appURL = applicationURL(
+            bundleIdentifier: config.bundleIdentifier,
+            path: config.appPath
+        )
 
         if activateRunningApplication(bundleIdentifier: config.bundleIdentifier) {
             if let appURL {
@@ -65,6 +67,7 @@ public final class ActionDispatcher {
         }
 
         guard let appURL else {
+            logger.error("Unable to find app for bundle id: \(config.bundleIdentifier, privacy: .public)")
             return
         }
 
@@ -240,7 +243,7 @@ public final class ActionDispatcher {
                 return
             }
         } else {
-            appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifierOrPath)
+            appURL = applicationURL(bundleIdentifier: identifierOrPath)
 
             if activateRunningApplication(bundleIdentifier: identifierOrPath) {
                 if let appURL {
@@ -251,16 +254,42 @@ public final class ActionDispatcher {
         }
 
         guard let appURL else {
+            logger.error("Unable to find app for identifier or path: \(identifierOrPath, privacy: .public)")
             return
         }
 
         openOrReopenApplication(at: appURL)
     }
 
+    private func applicationURL(bundleIdentifier: String, path: String? = nil) -> URL? {
+        if let path = trimmed(path) {
+            let url = URL(fileURLWithPath: NSString(string: path).expandingTildeInPath)
+            if FileManager.default.fileExists(atPath: url.path) {
+                return url
+            }
+        }
+
+        if let workspaceURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+            return workspaceURL
+        }
+
+        if let discoveredApp = AppDiscovery()
+            .discoverInstalledApps()
+            .first(where: { $0.bundleIdentifier == bundleIdentifier }) {
+            return URL(fileURLWithPath: discoveredApp.path)
+        }
+
+        return nil
+    }
+
     private func openOrReopenApplication(at appURL: URL) {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
-        NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)
+        NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { [weak self] _, error in
+            if let error {
+                self?.logger.error("Unable to open app at \(appURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     private func openFilePath(_ path: String?) {
