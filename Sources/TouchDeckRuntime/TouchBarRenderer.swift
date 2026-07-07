@@ -91,41 +91,33 @@ public final class TouchBarRenderer: NSObject, NSTouchBarDelegate {
             return customItem
         }
 
-        let title = itemConfig.touchBarTitle(snapshot: widgetSnapshots[itemConfig.id])
-        let buttonItem = NSButtonTouchBarItem(
-            identifier: identifier,
-            title: title,
-            target: self,
-            action: #selector(handleButtonTouchBarItem(_:))
+        let buttonView = TouchDeckButtonView(
+            config: itemConfig,
+            snapshot: widgetSnapshots[itemConfig.id],
+            onClick: { [weak self] in
+                if itemConfig.isLayoutSwitchButton {
+                    self?.switchToNextLayout()
+                    return
+                }
+
+                self?.actionDispatcher.dispatch(item: itemConfig)
+            }
         )
-        buttonItem.image = itemConfig.touchBarImage(snapshot: widgetSnapshots[itemConfig.id], accessibilityDescription: title)
-        buttonItem.customizationLabel = title.isEmpty
+        customItem.view = buttonView
+        let title = itemConfig.touchBarTitle(snapshot: widgetSnapshots[itemConfig.id])
+        customItem.customizationLabel = title.isEmpty
             ? itemConfig.accessibilityLabel(snapshot: widgetSnapshots[itemConfig.id])
             : title
 
         if case .widget = itemConfig.type {
-            widgetUpdateHandlers[itemConfig.id] = { [weak buttonItem] config, snapshot in
+            widgetUpdateHandlers[itemConfig.id] = { [weak buttonView, weak customItem] config, snapshot in
                 let title = config.touchBarTitle(snapshot: snapshot)
-                buttonItem?.title = title
-                buttonItem?.image = config.touchBarImage(snapshot: snapshot, accessibilityDescription: title)
-                buttonItem?.customizationLabel = title.isEmpty ? config.accessibilityLabel(snapshot: snapshot) : title
+                buttonView?.update(config: config, snapshot: snapshot)
+                customItem?.customizationLabel = title.isEmpty ? config.accessibilityLabel(snapshot: snapshot) : title
             }
         }
 
-        return buttonItem
-    }
-
-    @objc private func handleButtonTouchBarItem(_ sender: NSButtonTouchBarItem) {
-        guard let item = itemConfig(for: sender.identifier) else {
-            return
-        }
-
-        if item.isLayoutSwitchButton {
-            switchToNextLayout()
-            return
-        }
-
-        actionDispatcher.dispatch(item: item)
+        return customItem
     }
 
     private func currentItems() -> [TouchBarItemConfig] {
@@ -301,6 +293,100 @@ private final class TouchDeckSpacerView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+}
+
+private final class TouchDeckButtonView: NSControl {
+    private let imageView = NSImageView()
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let onClick: () -> Void
+    private var widthConstraint: NSLayoutConstraint?
+
+    init(config: TouchBarItemConfig, snapshot: WidgetSnapshot?, onClick: @escaping () -> Void) {
+        self.onClick = onClick
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        applyTouchDeckKeyBackground()
+
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = .systemFont(ofSize: 11, weight: .semibold)
+        titleLabel.textColor = .labelColor
+        titleLabel.lineBreakMode = .byClipping
+        titleLabel.maximumNumberOfLines = 1
+
+        addSubview(imageView)
+        addSubview(titleLabel)
+
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: TouchDeckKeyMetrics.height)
+        ])
+
+        update(config: config, snapshot: snapshot)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(config: TouchBarItemConfig, snapshot: WidgetSnapshot?) {
+        let title = config.touchBarTitle(snapshot: snapshot)
+        let isIconOnly = title.isEmpty
+        let iconSize = Self.iconSize(for: config)
+
+        imageView.image = config.touchBarImage(snapshot: snapshot, accessibilityDescription: config.accessibilityLabel(snapshot: snapshot))
+        imageView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .semibold)
+        imageView.contentTintColor = config.usesAppIcon ? nil : .labelColor
+        titleLabel.stringValue = title
+        titleLabel.isHidden = isIconOnly
+
+        widthConstraint?.isActive = false
+        let nextWidthConstraint = widthAnchor.constraint(equalToConstant: TouchDeckKeyMetrics.width(for: config.normalizedSize))
+        nextWidthConstraint.isActive = true
+        widthConstraint = nextWidthConstraint
+
+        NSLayoutConstraint.deactivate(constraints.filter { $0.identifier == "touchDeckButtonLayout" })
+        let nextConstraints: [NSLayoutConstraint]
+
+        if isIconOnly {
+            nextConstraints = [
+                imageView.centerXAnchor.constraint(equalTo: centerXAnchor),
+                imageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+                imageView.widthAnchor.constraint(equalToConstant: iconSize),
+                imageView.heightAnchor.constraint(equalToConstant: iconSize)
+            ]
+        } else {
+            nextConstraints = [
+                imageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: TouchDeckKeyMetrics.horizontalPadding),
+                imageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+                imageView.widthAnchor.constraint(equalToConstant: iconSize),
+                imageView.heightAnchor.constraint(equalToConstant: iconSize),
+                titleLabel.leadingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: TouchDeckKeyMetrics.contentSpacing),
+                titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -TouchDeckKeyMetrics.horizontalPadding),
+                titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
+            ]
+        }
+
+        nextConstraints.forEach { $0.identifier = "touchDeckButtonLayout" }
+        NSLayoutConstraint.activate(nextConstraints)
+        needsLayout = true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        setTouchDeckKeyPressed(true)
+        onClick()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+            self?.setTouchDeckKeyPressed(false)
+        }
+    }
+
+    private static func iconSize(for config: TouchBarItemConfig) -> CGFloat {
+        config.usesAppIcon ? 21 : 16
     }
 }
 
@@ -668,6 +754,14 @@ private extension TouchBarItemConfig {
         case .spacer:
             return "rectangle.dashed"
         }
+    }
+
+    var usesAppIcon: Bool {
+        if case .app = type {
+            return true
+        }
+
+        return false
     }
 
     var isActiveKey: Bool {
