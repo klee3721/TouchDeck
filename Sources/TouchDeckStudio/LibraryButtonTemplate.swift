@@ -171,6 +171,14 @@ struct LibraryButtonTemplate: Identifiable {
             itemType: .function(FunctionButtonConfig(functionId: "edit.selectAll"))
         ),
         LibraryButtonTemplate(
+            id: "function.kill-app",
+            title: BuiltInFunctionCatalog.definition(id: "currentApp.kill")?.name ?? "Kill App",
+            subtitle: "Function",
+            symbolName: BuiltInFunctionCatalog.definition(id: "currentApp.kill")?.symbolName ?? "bolt.trianglebadge.exclamationmark",
+            size: .small,
+            itemType: .function(FunctionButtonConfig(functionId: "currentApp.kill"))
+        ),
+        LibraryButtonTemplate(
             id: "function.keyboard-shortcut",
             title: BuiltInFunctionCatalog.definition(id: "keyboard.shortcut")?.name ?? "Keyboard Shortcut",
             subtitle: "Function",

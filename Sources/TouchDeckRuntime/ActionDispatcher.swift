@@ -143,7 +143,7 @@ public final class ActionDispatcher {
         case "currentApp.quit":
             quitCurrentApp(force: false)
         case "currentApp.kill":
-            quitCurrentApp(force: true)
+            sendCommandShortcut(keyCode: KeyboardKey.q)
         default:
             break
         }
@@ -709,6 +709,7 @@ private enum KeyboardKey {
     static let escape: CGKeyCode = 53
     static let a: CGKeyCode = 0
     static let c: CGKeyCode = 8
+    static let q: CGKeyCode = 12
     static let v: CGKeyCode = 9
     static let x: CGKeyCode = 7
     static let z: CGKeyCode = 6

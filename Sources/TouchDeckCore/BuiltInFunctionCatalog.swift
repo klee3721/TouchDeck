@@ -217,7 +217,7 @@ public enum BuiltInFunctionCatalog {
         ),
         BuiltInFunctionDefinition(
             id: "currentApp.kill",
-            name: "Kill Current App",
+            name: "Kill App",
             symbolName: "bolt.trianglebadge.exclamationmark",
             supportedSizes: [.small]
         )
