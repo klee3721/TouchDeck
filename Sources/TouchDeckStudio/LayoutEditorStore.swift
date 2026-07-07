@@ -311,6 +311,14 @@ final class LayoutEditorStore: ObservableObject {
         moveSelectedLayout(by: 1)
     }
 
+    func moveSelectedItemLeft() {
+        moveSelectedItem(by: -1)
+    }
+
+    func moveSelectedItemRight() {
+        moveSelectedItem(by: 1)
+    }
+
     func move(itemID: TouchBarItemConfig.ID, to layoutIndex: Int? = nil, before targetID: TouchBarItemConfig.ID? = nil) {
         guard itemID != targetID else {
             return
@@ -625,6 +633,45 @@ final class LayoutEditorStore: ObservableObject {
         selectedLayoutIndex = nextIndex
         selectedItemID = nil
         applyRequiredLayoutSwitchesAfterStructureChange()
+    }
+
+    private func moveSelectedItem(by offset: Int) {
+        guard let selectedItemID else {
+            return
+        }
+
+        let targetLayoutIndex = normalizedLayoutIndex(selectedLayoutIndex)
+        let sortedItems = page(at: targetLayoutIndex).items.sorted { $0.position < $1.position }
+
+        guard let currentIndex = sortedItems.firstIndex(where: { $0.id == selectedItemID }) else {
+            errorMessage = "Could not find this button."
+            return
+        }
+
+        let destinationIndex = currentIndex + offset
+        guard sortedItems.indices.contains(destinationIndex) else {
+            return
+        }
+
+        applyEdit {
+            if offset < 0 {
+                return try engine.move(
+                    itemId: selectedItemID,
+                    before: sortedItems[destinationIndex].id,
+                    in: page(at: targetLayoutIndex)
+                )
+            }
+
+            return try engine.move(
+                itemId: sortedItems[destinationIndex].id,
+                before: selectedItemID,
+                in: page(at: targetLayoutIndex)
+            )
+        } apply: { editedPage in
+            applyPage(editedPage, at: targetLayoutIndex)
+        }
+
+        self.selectedItemID = selectedItemID
     }
 
     private func applyRequiredLayoutSwitchesAfterStructureChange() {

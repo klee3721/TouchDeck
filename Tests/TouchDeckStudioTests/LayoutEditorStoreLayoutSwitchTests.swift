@@ -72,6 +72,46 @@ import TouchDeckCore
     #expect(store.errorMessage == "Switch Layout is required in this layout and cannot be deleted.")
 }
 
+@MainActor
+@Test func selectedItemMovesLeftAndRightWithKeyboardReorderCommands() {
+    let first = TouchBarItemConfig(position: 0, size: .small, type: .spacer)
+    let second = TouchBarItemConfig(position: 1, size: .small, type: .spacer)
+    let third = TouchBarItemConfig(position: 2, size: .small, type: .spacer)
+    let profile = TouchBarProfile(
+        name: "Default",
+        layout: TouchBarLayout(pages: [TouchBarPage(items: [first, second, third])])
+    )
+    let store = LayoutEditorStore(profile: profile, installedApps: [])
+    store.selectedItemID = second.id
+
+    store.moveSelectedItemLeft()
+
+    #expect(store.profile.layout.pages[0].items.map(\.id) == [second.id, first.id, third.id])
+    #expect(store.selectedItemID == second.id)
+
+    store.moveSelectedItemRight()
+
+    #expect(store.profile.layout.pages[0].items.map(\.id) == [first.id, second.id, third.id])
+    #expect(store.selectedItemID == second.id)
+}
+
+@MainActor
+@Test func selectedItemKeyboardReorderStopsAtLayoutEdges() {
+    let first = TouchBarItemConfig(position: 0, size: .small, type: .spacer)
+    let second = TouchBarItemConfig(position: 1, size: .small, type: .spacer)
+    let profile = TouchBarProfile(
+        name: "Default",
+        layout: TouchBarLayout(pages: [TouchBarPage(items: [first, second])])
+    )
+    let store = LayoutEditorStore(profile: profile, installedApps: [])
+    store.selectedItemID = first.id
+
+    store.moveSelectedItemLeft()
+
+    #expect(store.profile.layout.pages[0].items.map(\.id) == [first.id, second.id])
+    #expect(store.selectedItemID == first.id)
+}
+
 private extension TouchBarPage {
     var containsLayoutSwitch: Bool {
         items.contains { item in

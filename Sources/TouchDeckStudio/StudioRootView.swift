@@ -558,6 +558,7 @@ private struct VirtualTouchBarView: View {
     let layoutIndex: Int
     let page: TouchBarPage
     @State private var isDropTargeted = false
+    @FocusState private var isKeyboardReorderFocused: Bool
 
     private var isSelected: Bool {
         store.selectedLayoutIndex == layoutIndex
@@ -631,6 +632,19 @@ private struct VirtualTouchBarView: View {
         )
         .onTapGesture {
             store.selectLayout(index: layoutIndex)
+            isKeyboardReorderFocused = true
+        }
+        .focusable()
+        .focused($isKeyboardReorderFocused)
+        .onMoveCommand { direction in
+            switch direction {
+            case .left:
+                store.moveSelectedItemLeft()
+            case .right:
+                store.moveSelectedItemRight()
+            default:
+                break
+            }
         }
     }
 
@@ -656,6 +670,7 @@ private struct VirtualTouchBarView: View {
                     .onTapGesture {
                         store.selectLayout(index: layoutIndex)
                         store.selectedItemID = item.id
+                        isKeyboardReorderFocused = true
                     }
                     .draggable(TouchDeckDragPayload.touchBarItem(id: item.id))
                     .animation(.snappy(duration: 0.18), value: sortedItems.map(\.id))
