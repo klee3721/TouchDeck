@@ -412,7 +412,10 @@ private struct EditorView: View {
                         onStopRuntime: onStopRuntime
                     )
                 }
-                CellSizeSettingsView(onChange: onCellMetricsChange)
+                CellSizeSettingsView {
+                    store.refreshLayoutMetrics()
+                    onCellMetricsChange()
+                }
                 PermissionCenterView()
                 LaunchAtLoginSettingsView()
             }
@@ -1270,9 +1273,25 @@ private struct PermissionCenterView: View {
 private struct CellSizeSettingsView: View {
     let onChange: () -> Void
     @AppStorage(TouchDeckCellMetrics.runtimeCellWidthKey) private var runtimeCellWidth = TouchDeckCellMetrics.defaultRuntimeCellWidth
+    @AppStorage(TouchBarLayoutMetrics.maxCellsPerPageKey) private var maxCellsPerPage = TouchBarLayoutMetrics.defaultMaxCellsPerPage
 
     private var clampedCellWidth: Double {
         TouchDeckCellMetrics.clampedRuntimeCellWidth(runtimeCellWidth)
+    }
+
+    private var clampedMaxCellsPerPage: Int {
+        TouchBarLayoutMetrics.clampedMaxCellsPerPage(maxCellsPerPage)
+    }
+
+    private var maxCellsBinding: Binding<Int> {
+        Binding(
+            get: { clampedMaxCellsPerPage },
+            set: { newValue in
+                maxCellsPerPage = TouchBarLayoutMetrics.clampedMaxCellsPerPage(newValue)
+                TouchBarLayoutMetrics.maxCellsPerPage = maxCellsPerPage
+                onChange()
+            }
+        )
     }
 
     var body: some View {
@@ -1288,17 +1307,10 @@ private struct CellSizeSettingsView: View {
 
                 Spacer()
 
-                Text("\(Int(clampedCellWidth.rounded())) px / cell")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(.white)
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(.black.opacity(0.08), lineWidth: 1)
-                    )
+                HStack(spacing: 10) {
+                    metricPill("\(Int(clampedCellWidth.rounded())) px / cell")
+                    maxCellsInput
+                }
             }
 
             HStack(spacing: 12) {
@@ -1324,6 +1336,8 @@ private struct CellSizeSettingsView: View {
                 Button("Reset") {
                     runtimeCellWidth = TouchDeckCellMetrics.defaultRuntimeCellWidth
                     TouchDeckCellMetrics.runtimeCellWidth = runtimeCellWidth
+                    maxCellsPerPage = TouchBarLayoutMetrics.defaultMaxCellsPerPage
+                    TouchBarLayoutMetrics.maxCellsPerPage = maxCellsPerPage
                     onChange()
                 }
             }
@@ -1344,7 +1358,51 @@ private struct CellSizeSettingsView: View {
         .shadow(color: .black.opacity(0.05), radius: 16, y: 8)
         .onAppear {
             runtimeCellWidth = clampedCellWidth
+            maxCellsPerPage = clampedMaxCellsPerPage
         }
+    }
+
+    private var maxCellsInput: some View {
+        HStack(spacing: 6) {
+            Text("Max cells")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            TextField("17", value: maxCellsBinding, format: .number)
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .multilineTextAlignment(.center)
+                .textFieldStyle(.plain)
+                .frame(width: 34)
+                .padding(.vertical, 3)
+                .background(Color(red: 0.965, green: 0.965, blue: 0.973))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+            Stepper("Max cells", value: maxCellsBinding, in: TouchBarLayoutMetrics.minimumMaxCellsPerPage...TouchBarLayoutMetrics.maximumMaxCellsPerPage)
+                .labelsHidden()
+                .frame(width: 52)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(.white)
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(.black.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private func metricPill(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.white)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(.black.opacity(0.08), lineWidth: 1)
+            )
     }
 
     private func cellPreview(label: String, cells: Int) -> some View {

@@ -15,6 +15,7 @@ import TouchDeckCore
 
 @Test func defaultEditingCapacityMatchesFullTouchBarCells() {
     #expect(LayoutEditingEngine().maxCellsPerPage == TouchBarLayoutMetrics.maxCellsPerPage)
+    #expect(TouchBarLayoutMetrics.defaultMaxCellsPerPage == 17)
 }
 
 @Test func movingItemBeforeTargetKeepsLayoutCompact() throws {

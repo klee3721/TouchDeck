@@ -9,8 +9,14 @@ import TouchDeckCore
 }
 
 @Test func defaultLayoutCapacityMatchesFullTouchBarCells() {
-    #expect(TouchBarLayoutMetrics.maxCellsPerPage == 17)
+    #expect(TouchBarLayoutMetrics.defaultMaxCellsPerPage == 17)
     #expect(LayoutValidator().maxCellsPerPage == TouchBarLayoutMetrics.maxCellsPerPage)
+}
+
+@Test func layoutCapacitySettingClampsToSupportedRange() {
+    #expect(TouchBarLayoutMetrics.clampedMaxCellsPerPage(1) == TouchBarLayoutMetrics.minimumMaxCellsPerPage)
+    #expect(TouchBarLayoutMetrics.clampedMaxCellsPerPage(24) == 24)
+    #expect(TouchBarLayoutMetrics.clampedMaxCellsPerPage(99) == TouchBarLayoutMetrics.maximumMaxCellsPerPage)
 }
 
 @Test func validatorReportsOverlappingItems() {

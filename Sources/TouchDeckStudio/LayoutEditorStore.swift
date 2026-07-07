@@ -18,10 +18,10 @@ final class LayoutEditorStore: ObservableObject {
     @Published var activeBundleIdentifier: String?
     @Published var widgetSnapshots: [TouchBarItemConfig.ID: WidgetSnapshot] = [:]
     @Published var selectedLayoutIndex = 0
+    @Published private(set) var layoutMetricsRevision = 0
 
     private let profileStore: ProfileStore?
     private let onProfilesChange: ([TouchBarProfile], TouchBarProfile) -> Void
-    private let engine = LayoutEditingEngine()
     private let statsProvider = SystemStatsProvider()
     private let weatherProvider = OpenMeteoWeatherProvider()
     private let actionDispatcher = ActionDispatcher()
@@ -119,6 +119,10 @@ final class LayoutEditorStore: ObservableObject {
         history.canRedo
     }
 
+    private var engine: LayoutEditingEngine {
+        LayoutEditingEngine(maxCellsPerPage: TouchBarLayoutMetrics.maxCellsPerPage)
+    }
+
     func page(at index: Int) -> TouchBarPage {
         let pages = layouts
         guard pages.indices.contains(index) else {
@@ -126,6 +130,10 @@ final class LayoutEditorStore: ObservableObject {
         }
 
         return pages[index]
+    }
+
+    func refreshLayoutMetrics() {
+        layoutMetricsRevision += 1
     }
 
     func add(template: LibraryButtonTemplate, to layoutIndex: Int? = nil, before targetID: TouchBarItemConfig.ID? = nil) {
