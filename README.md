@@ -4,6 +4,16 @@ TouchDeck is a macOS app that turns the MacBook Pro Touch Bar into a Stream Deck
 
 The app is designed as a native, minimal, premium macOS experience inspired by System Settings, Finder, Xcode, TestFlight, Raycast, Arc Browser, CleanShot X, Linear, and Notion Calendar.
 
+## Demo
+
+<img src="docs/assets/demo-touchbar-keyboard.png" alt="TouchDeck running on a MacBook Pro Touch Bar" width="100%">
+
+<img src="docs/assets/demo-studio-layouts.png" alt="TouchDeck virtual Touch Bar layout editor" width="100%">
+
+<img src="docs/assets/demo-button-library.png" alt="TouchDeck button library" width="100%">
+
+<img src="docs/assets/demo-settings-permissions.png" alt="TouchDeck runtime, cell size, and permission settings" width="100%">
+
 ## Key Features
 
 - Virtual Touch Bar editor with drag-and-drop layout editing.
