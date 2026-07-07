@@ -1,88 +1,88 @@
 # TouchDeck
 
-TouchDeck là một ứng dụng macOS biến Touch Bar trên MacBook Pro thành một bảng điều khiển kiểu Stream Deck. Người dùng có thể tự sắp xếp các nút trên Touch Bar thật thông qua một Touch Bar ảo trong app, kéo thả nút, tạo nhiều layout, chuyển layout, mở app nhanh, chạy phím tắt, điều khiển hệ thống và xem thông số máy.
+TouchDeck is a macOS app that turns the MacBook Pro Touch Bar into a Stream Deck-style control surface. It lets users arrange real Touch Bar buttons through an in-app virtual Touch Bar, drag buttons in and out, create multiple layouts, switch layouts, launch or focus apps, run shortcuts, control system actions, and view machine stats.
 
-Ứng dụng đang được thiết kế theo hướng native macOS, tối giản và premium, lấy cảm hứng từ System Settings, Finder, Xcode, TestFlight, Raycast, Arc Browser, CleanShot X, Linear và Notion Calendar.
+The app is designed as a native, minimal, premium macOS experience inspired by System Settings, Finder, Xcode, TestFlight, Raycast, Arc Browser, CleanShot X, Linear, and Notion Calendar.
 
-## Tính Năng Chính
+## Key Features
 
-- Touch Bar ảo để sắp xếp nút bằng kéo thả.
-- Chạy global Touch Bar để layout của TouchDeck vẫn hiển thị khi chuyển sang app khác.
-- Hỗ trợ tối đa 5 layout song song.
-- Nút Switch Layout để chuyển qua lại giữa các layout.
-- Quy tắc bắt buộc Switch Layout khi có nhiều layout để không bị kẹt ở một layout.
-- App Button giống Dock: mở app, focus app đang chạy, unhide app đang bị ẩn.
-- Danh sách app quét từ `/Applications`, `~/Applications`, `/System/Applications`, `/System/Applications/Utilities` và `/Applications/Utilities`.
-- Function Button cho copy, paste, control paste, undo, redo, select all, mở URL, mở file/folder, chạy shell, AppleScript, shortcut macOS và điều khiển app hiện tại.
-- System Button cho âm lượng, độ sáng, mute, media, Mission Control, Launchpad, screenshot, emoji picker, khóa màn hình và sleep.
-- Slider âm lượng và độ sáng dạng 2 cells, chỉ có thanh trượt, thumb là icon loa hoặc mặt trời.
-- Widget hiển thị phần trăm RAM, SSD, CPU, pin bằng số màu theo mức sử dụng.
-- RAM widget có thể bấm để mở Activity Monitor.
-- Profile mặc định và profile riêng theo app đang frontmost.
-- Lưu, import/export profile JSON.
-- Menu bar runtime để start/stop/re-present Touch Bar.
-- Test suite cho core rules, profile store, app discovery, layout editing và studio store.
+- Virtual Touch Bar editor with drag-and-drop layout editing.
+- Global Touch Bar runtime so TouchDeck layouts can stay visible while other apps are frontmost.
+- Up to 5 parallel layouts.
+- Switch Layout button for cycling between layouts.
+- Required Switch Layout rules when multiple layouts exist, so users do not get stuck on one layout.
+- Dock-like App Buttons: launch apps, focus running apps, and unhide hidden apps.
+- App discovery from `/Applications`, `~/Applications`, `/System/Applications`, `/System/Applications/Utilities`, and `/Applications/Utilities`.
+- Function Buttons for copy, paste, control paste, undo, redo, select all, opening URLs, opening files or folders, shell commands, AppleScript, macOS Shortcuts, and current-app actions.
+- System Buttons for volume, brightness, mute, media controls, Mission Control, Launchpad, screenshots, emoji picker, lock screen, and sleep.
+- Volume and brightness sliders with compact Touch Bar-native styling.
+- Percentage widgets for RAM, SSD, CPU, and battery usage, with color-coded values.
+- RAM widget click action opens Activity Monitor.
+- Default profiles and app-specific profiles based on the frontmost app.
+- JSON profile save, import, and export.
+- Menu bar runtime controls for starting, stopping, and re-presenting the Touch Bar.
+- Test coverage for core rules, profile storage, app discovery, layout editing, and the Studio store.
 
-## Thiết Kế Nút
+## Button Design Rules
 
-TouchDeck dùng quy tắc hiển thị gọn cho Touch Bar thật:
+TouchDeck uses compact rendering rules for the real Touch Bar:
 
-- Phần lớn nút mặc định là 1 cell và chỉ hiển thị icon.
-- Slider là ngoại lệ, dùng 2 cells.
-- App Button luôn 1 cell và chỉ hiển thị icon app.
-- Widget phần trăm chỉ hiển thị số phần trăm, không hiển thị logo.
-- Màu phần trăm chia theo bậc:
-  - `0-20%`: xanh
+- Most default buttons are 1 cell and icon-only.
+- Sliders can use wider layouts.
+- App Buttons are always 1 cell and display only the app icon.
+- Percentage widgets display only the percentage value, without a logo.
+- Percentage colors are tiered by usage:
+  - `0-20%`: green
   - `20-40%`: mint
-  - `40-60%`: vàng
-  - `60-80%`: cam
-  - `80-100%`: đỏ
+  - `40-60%`: yellow
+  - `60-80%`: orange
+  - `80-100%`: red
 
-## Yêu Cầu Hệ Thống
+## System Requirements
 
-- macOS 14 trở lên.
-- MacBook Pro có Touch Bar để test đầy đủ runtime thật.
-- Swift 6 / Xcode toolchain tương thích Swift Package Manager.
+- macOS 14 or later.
+- A MacBook Pro with Touch Bar for full runtime testing.
+- Swift 6 / Xcode toolchain compatible with Swift Package Manager.
 
-Một số hành động cần quyền hệ thống:
+Some actions require system permissions:
 
-- Accessibility: keyboard shortcut, Mission Control, screenshot, emoji picker và một số system action.
-- Automation: AppleScript, volume slider và các action điều khiển app khác.
-- Location/Network: widget thời tiết nếu dùng.
+- Accessibility: keyboard shortcuts, Mission Control, screenshots, emoji picker, and some system actions.
+- Automation: AppleScript, volume slider behavior, and app-control actions.
+- Location/Network: optional weather widgets.
 
-## Build Và Chạy
+## Build And Run
 
-Chạy test:
+Run tests:
 
 ```bash
 swift test
 ```
 
-Build binary SwiftPM:
+Build the SwiftPM binary:
 
 ```bash
 swift build -c release --product TouchDeck
 ```
 
-Đóng gói thành `.app` local:
+Package a local `.app` bundle:
 
 ```bash
 ./scripts/package_app.sh
 ```
 
-App bundle sẽ được tạo tại:
+The app bundle is created at:
 
 ```text
 dist/TouchDeck.app
 ```
 
-Mở app:
+Open the app:
 
 ```bash
 open dist/TouchDeck.app
 ```
 
-Verify chữ ký local:
+Verify local code signing:
 
 ```bash
 codesign --verify --deep --strict --verbose=2 dist/TouchDeck.app
@@ -90,22 +90,22 @@ codesign --verify --deep --strict --verbose=2 dist/TouchDeck.app
 
 ## Developer ID Signing
 
-Mặc định script dùng ad-hoc signing cho development. Để ký bằng Developer ID:
+By default, the packaging script uses ad-hoc signing for development. To sign with a Developer ID identity:
 
 ```bash
 CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./scripts/package_app.sh
 ```
 
-Xem thêm checklist phát hành tại [docs/distribution.md](docs/distribution.md).
+See the release checklist in [docs/distribution.md](docs/distribution.md).
 
-## Cấu Trúc Dự Án
+## Project Structure
 
 ```text
 Sources/
-  TouchDeckApp/       Entry point của app.
+  TouchDeckApp/       App entry point.
   TouchDeckCore/      Models, catalogs, profile store, validation, app discovery, stats.
   TouchDeckRuntime/   Global Touch Bar runtime, renderer, action dispatcher.
-  TouchDeckStudio/    UI editor, layout store, drag/drop, inspector.
+  TouchDeckStudio/    Editor UI, layout store, drag and drop, inspector.
 
 Tests/
   TouchDeckCoreTests/
@@ -114,50 +114,51 @@ Tests/
 Packaging/
   Info.plist
   TouchDeck.entitlements
+  TouchDeck.icns
 
 docs/
   beta-qa.md
   distribution.md
 ```
 
-## Kiến Trúc
+## Architecture
 
-TouchDeck được chia thành bốn module:
+TouchDeck is split into four modules:
 
-- `TouchDeckCore`: chứa dữ liệu và luật nền như `TouchBarProfile`, `TouchBarPage`, `TouchBarItemConfig`, catalog action/widget/function, app discovery, profile codec và validator.
-- `TouchDeckRuntime`: render layout lên Touch Bar thật, dispatch action, cập nhật widget và giữ global runtime.
-- `TouchDeckStudio`: giao diện editor native SwiftUI/AppKit, virtual Touch Bar, drag/drop layout và inspector.
-- `TouchDeckApp`: bootstrap app, window, menu bar runtime và kết nối Studio với Runtime.
+- `TouchDeckCore`: shared data and rules, including `TouchBarProfile`, `TouchBarPage`, `TouchBarItemConfig`, action/widget/function catalogs, app discovery, profile codecs, and validation.
+- `TouchDeckRuntime`: renders layouts onto the real Touch Bar, dispatches actions, updates widgets, and manages the global runtime.
+- `TouchDeckStudio`: native SwiftUI/AppKit editor, virtual Touch Bar, drag-and-drop layout editing, and inspector UI.
+- `TouchDeckApp`: app bootstrap, window setup, menu bar runtime controls, and Studio-to-Runtime wiring.
 
-Profile được lưu dưới dạng JSON trong Application Support thông qua `ProfileStore`. Khi load/save/render, profile được normalize theo rule hiện tại để tránh layout cũ hiển thị sai kích cỡ.
+Profiles are stored as JSON in Application Support through `ProfileStore`. When profiles are loaded, saved, or rendered, they are normalized against the current rules so older layouts keep rendering correctly.
 
 ## Global Touch Bar
 
-TouchDeck hướng tới trải nghiệm Touch Bar hiện ở mọi app, tương tự nhóm app như MTMR. Cơ chế này phụ thuộc vào API/private behavior của macOS Touch Bar, vì vậy:
+TouchDeck aims to provide an always-available Touch Bar experience similar to tools such as MTMR. This depends on private macOS Touch Bar presentation behavior, so:
 
-- Nên phát hành trực tiếp bằng Developer ID signing và notarization.
-- Không nên kỳ vọng phù hợp App Store nếu còn phụ thuộc global/private Touch Bar presentation.
-- macOS update có thể làm thay đổi hành vi runtime.
-- App vẫn cần fallback rõ ràng khi global runtime không khả dụng.
+- Direct distribution with Developer ID signing and notarization is recommended.
+- App Store distribution should not be expected while the app depends on global/private Touch Bar presentation.
+- macOS updates may change runtime behavior.
+- The app should keep a clear fallback path when global runtime is unavailable.
 
 ## QA
 
-Checklist beta chi tiết nằm tại [docs/beta-qa.md](docs/beta-qa.md).
+The detailed beta checklist lives in [docs/beta-qa.md](docs/beta-qa.md).
 
-Các điểm cần test trên máy có Touch Bar thật:
+Important checks on real Touch Bar hardware:
 
-- Layout vẫn hiện khi chuyển sang Finder, Safari, Xcode hoặc app khác.
-- App Button mở/focus/unhide app đúng.
-- Copy/paste tác động vào app frontmost, không phải TouchDeck Studio.
-- Slider âm lượng/độ sáng phản hồi mượt.
-- RAM widget mở Activity Monitor khi bấm.
-- Switch Layout hoạt động ở mọi layout.
-- Profile app-specific tự đổi theo frontmost app.
+- Layouts stay visible when switching to Finder, Safari, Xcode, or other apps.
+- App Buttons launch, focus, and unhide apps correctly.
+- Copy/paste affects the frontmost app, not TouchDeck Studio.
+- Volume and brightness sliders respond smoothly.
+- RAM widget opens Activity Monitor when clicked.
+- Switch Layout works in every layout.
+- App-specific profiles switch based on the frontmost app.
 
-## Trạng Thái
+## Status
 
-TouchDeck đang ở giai đoạn prototype/beta nội bộ. Các tính năng chính đã có nền tảng hoạt động, nhưng cần tiếp tục QA trên máy có Touch Bar thật, nhất là global runtime, quyền Accessibility/Automation và tương thích theo phiên bản macOS.
+TouchDeck is currently an internal prototype/beta. The core feature foundation is in place, but it still needs more QA on real Touch Bar hardware, especially around global runtime behavior, Accessibility/Automation permissions, and macOS version compatibility.
 
 ## License
 
-TouchDeck được phát hành theo giấy phép GNU General Public License v3.0 hoặc phiên bản mới hơn. Xem chi tiết tại [LICENSE](LICENSE).
+TouchDeck is released under the GNU General Public License v3.0 or later. See [LICENSE](LICENSE) for details.
