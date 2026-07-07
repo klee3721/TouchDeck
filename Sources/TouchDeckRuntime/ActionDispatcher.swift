@@ -54,20 +54,21 @@ public final class ActionDispatcher {
     }
 
     private func activateOrLaunchApp(_ config: AppButtonConfig) {
-        if activateRunningApplication(bundleIdentifier: config.bundleIdentifier) {
-            return
-        }
-
         let appURL = config.appPath.map(URL.init(fileURLWithPath:))
             ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: config.bundleIdentifier)
+
+        if activateRunningApplication(bundleIdentifier: config.bundleIdentifier) {
+            if let appURL {
+                openOrReopenApplication(at: appURL)
+            }
+            return
+        }
 
         guard let appURL else {
             return
         }
 
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = true
-        NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)
+        openOrReopenApplication(at: appURL)
     }
 
     @discardableResult
@@ -218,12 +219,11 @@ public final class ActionDispatcher {
         let url = URL(fileURLWithPath: path)
 
         if activateRunningApplication(appURL: url) {
+            openOrReopenApplication(at: url)
             return
         }
 
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = true
-        NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+        openOrReopenApplication(at: url)
     }
 
     private func openApp(identifierOrPath: String?) {
@@ -233,22 +233,31 @@ public final class ActionDispatcher {
 
         let appURL: URL?
         if identifierOrPath.hasPrefix("/") {
-            appURL = URL(fileURLWithPath: identifierOrPath)
-            if activateRunningApplication(appURL: appURL) {
+            let pathAppURL = URL(fileURLWithPath: identifierOrPath)
+            appURL = pathAppURL
+            if activateRunningApplication(appURL: pathAppURL) {
+                openOrReopenApplication(at: pathAppURL)
                 return
             }
         } else {
+            appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifierOrPath)
+
             if activateRunningApplication(bundleIdentifier: identifierOrPath) {
+                if let appURL {
+                    openOrReopenApplication(at: appURL)
+                }
                 return
             }
-
-            appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifierOrPath)
         }
 
         guard let appURL else {
             return
         }
 
+        openOrReopenApplication(at: appURL)
+    }
+
+    private func openOrReopenApplication(at appURL: URL) {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)
