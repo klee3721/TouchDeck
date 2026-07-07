@@ -899,19 +899,17 @@ private struct TouchBarItemPreview: View {
 }
 
 private enum StudioTouchBarKeyMetrics {
-    static let cellWidth: CGFloat = 52
+    static let cellWidth: CGFloat = 46
     static let interCellGap: CGFloat = 5
     static let height: CGFloat = 40
     static let cornerRadius: CGFloat = 8
 
     static func width(for size: ButtonSize) -> CGFloat {
-        let cells = CGFloat(size.rawValue)
-        return (cells * cellWidth) + (max(0, cells - 1) * interCellGap)
+        CGFloat(size.rawValue) * cellWidth
     }
 
     static var fullWidth: CGFloat {
-        let cells = CGFloat(TouchBarLayoutMetrics.maxCellsPerPage)
-        return (cells * cellWidth) + (max(0, cells - 1) * interCellGap)
+        CGFloat(TouchBarLayoutMetrics.maxCellsPerPage) * cellWidth
     }
 
     static func sliderFillWidth(for size: ButtonSize) -> CGFloat {
