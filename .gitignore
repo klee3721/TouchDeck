@@ -1,0 +1,19 @@
+.DS_Store
+
+# SwiftPM / build output
+.build/
+.swiftpm/
+DerivedData/
+
+# Packaged app output
+dist/
+
+# Xcode user state
+*.xcuserstate
+xcuserdata/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
