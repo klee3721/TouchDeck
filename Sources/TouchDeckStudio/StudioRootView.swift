@@ -899,10 +899,10 @@ private struct TouchBarItemPreview: View {
 }
 
 private enum StudioTouchBarKeyMetrics {
-    static let cellWidth: CGFloat = 64
-    static let interCellGap: CGFloat = 8
-    static let height: CGFloat = 44
-    static let cornerRadius: CGFloat = 10
+    static let cellWidth: CGFloat = 52
+    static let interCellGap: CGFloat = 5
+    static let height: CGFloat = 40
+    static let cornerRadius: CGFloat = 8
 
     static func width(for size: ButtonSize) -> CGFloat {
         let cells = CGFloat(size.rawValue)
