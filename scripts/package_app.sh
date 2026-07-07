@@ -20,6 +20,7 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 cp "$BUILD_PRODUCT" "$MACOS_DIR/$APP_NAME"
 cp "$ROOT_DIR/Packaging/Info.plist" "$CONTENTS_DIR/Info.plist"
+cp "$ROOT_DIR/Packaging/TouchDeck.icns" "$RESOURCES_DIR/TouchDeck.icns"
 printf 'APPL????' > "$CONTENTS_DIR/PkgInfo"
 
 chmod +x "$MACOS_DIR/$APP_NAME"
