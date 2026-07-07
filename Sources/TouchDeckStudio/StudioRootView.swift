@@ -937,6 +937,9 @@ private struct ItemIconView: View {
                 .frame(width: 18, height: 18)
         } else {
             Image(systemName: item.symbolName)
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white.opacity(0.98))
         }
     }
 }

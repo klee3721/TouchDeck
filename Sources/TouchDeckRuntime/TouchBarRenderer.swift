@@ -351,9 +351,12 @@ private final class TouchDeckButtonView: NSControl {
         let isIconOnly = title.isEmpty
         let iconSize = Self.iconSize(for: config)
 
-        imageView.image = config.touchBarImage(snapshot: snapshot, accessibilityDescription: config.accessibilityLabel(snapshot: snapshot))
-        imageView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .semibold)
-        imageView.contentTintColor = config.usesAppIcon ? nil : .labelColor
+        let image = config.touchBarImage(snapshot: snapshot, accessibilityDescription: config.accessibilityLabel(snapshot: snapshot))?
+            .copy() as? NSImage
+        image?.isTemplate = !config.usesAppIcon
+        imageView.image = image
+        imageView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .bold)
+        imageView.contentTintColor = config.usesAppIcon ? nil : NSColor.white.withAlphaComponent(0.98)
         titleLabel.stringValue = title
         titleLabel.isHidden = isIconOnly
 
