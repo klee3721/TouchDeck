@@ -28,6 +28,7 @@ final class TouchDeckAppDelegate: NSObject, NSApplicationDelegate {
     private var appActivationObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        TouchDeckPermissionResetter.resetOnNewAppVersionIfNeeded()
         loadInitialProfiles()
         startRuntime()
         configureMenuBar()
@@ -235,6 +236,10 @@ final class TouchDeckWindowController: NSWindowController {
                 },
                 onStopRuntime: {
                     runtimeCoordinator?.stopGlobalRuntime()
+                },
+                onCellMetricsChange: { [weak self] in
+                    runtimeCoordinator?.reloadPresentedTouchBars()
+                    self?.updateTouchBar()
                 },
                 onProfilesChange: { [weak self] updatedProfiles, updatedProfile in
                     onProfilesChange(updatedProfiles, updatedProfile)

@@ -12,6 +12,7 @@ public struct StudioRootView: View {
     private let runtimeStatusStore: RuntimeStatusStore?
     private let onStartRuntime: () -> Void
     private let onStopRuntime: () -> Void
+    private let onCellMetricsChange: () -> Void
 
     public init(
         profile: TouchBarProfile = SampleData.defaultProfile,
@@ -21,12 +22,14 @@ public struct StudioRootView: View {
         runtimeStatusStore: RuntimeStatusStore? = nil,
         onStartRuntime: @escaping () -> Void = {},
         onStopRuntime: @escaping () -> Void = {},
+        onCellMetricsChange: @escaping () -> Void = {},
         onProfilesChange: @escaping ([TouchBarProfile], TouchBarProfile) -> Void = { _, _ in }
     ) {
         _profileSyncBridge = ObservedObject(wrappedValue: profileSyncBridge)
         self.runtimeStatusStore = runtimeStatusStore
         self.onStartRuntime = onStartRuntime
         self.onStopRuntime = onStopRuntime
+        self.onCellMetricsChange = onCellMetricsChange
         _store = StateObject(
             wrappedValue: LayoutEditorStore(
                 profile: profile,
@@ -48,7 +51,8 @@ public struct StudioRootView: View {
                 store: store,
                 runtimeStatusStore: runtimeStatusStore,
                 onStartRuntime: onStartRuntime,
-                onStopRuntime: onStopRuntime
+                onStopRuntime: onStopRuntime,
+                onCellMetricsChange: onCellMetricsChange
             )
                 .frame(minWidth: 620)
 
@@ -293,6 +297,7 @@ private struct EditorView: View {
     let runtimeStatusStore: RuntimeStatusStore?
     let onStartRuntime: () -> Void
     let onStopRuntime: () -> Void
+    let onCellMetricsChange: () -> Void
 
     @AppStorage("TouchDeck.didDismissOnboarding") private var didDismissOnboarding = false
     @State private var isShowingDeleteProfileConfirmation = false
@@ -407,6 +412,7 @@ private struct EditorView: View {
                         onStopRuntime: onStopRuntime
                     )
                 }
+                CellSizeSettingsView(onChange: onCellMetricsChange)
                 PermissionCenterView()
                 LaunchAtLoginSettingsView()
             }
@@ -899,7 +905,10 @@ private struct TouchBarItemPreview: View {
 }
 
 private enum StudioTouchBarKeyMetrics {
-    static let cellWidth: CGFloat = 46
+    static var cellWidth: CGFloat {
+        CGFloat(TouchDeckCellMetrics.studioCellWidth)
+    }
+
     static let interCellGap: CGFloat = 5
     static let height: CGFloat = 40
     static let cornerRadius: CGFloat = 8
@@ -1184,6 +1193,7 @@ private struct CompatibilityRow: View {
 
 private struct PermissionCenterView: View {
     @State private var items = PermissionCenterItem.currentItems()
+    @State private var resetMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1198,12 +1208,28 @@ private struct PermissionCenterView: View {
                 Button("Open Accessibility Settings") {
                     PermissionCenterItem.openAccessibilitySettings()
                 }
+                Button("Reset Permissions", role: .destructive) {
+                    let didReset = TouchDeckPermissionResetter.resetCurrentAppPermissions()
+                    resetMessage = didReset
+                        ? "Permissions were reset. Grant them again when macOS asks."
+                        : "Could not reset every permission. You can still remove TouchDeck manually in System Settings."
+                    items = PermissionCenterItem.currentItems()
+                }
                 Button {
                     items = PermissionCenterItem.currentItems()
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
                 .help("Refresh")
+            }
+
+            if let resetMessage {
+                Label(resetMessage, systemImage: "arrow.counterclockwise.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(10)
+                    .background(Color(red: 0.985, green: 0.985, blue: 0.99))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
@@ -1234,6 +1260,104 @@ private struct PermissionCenterView: View {
                     )
                 }
             }
+        }
+    }
+}
+
+private struct CellSizeSettingsView: View {
+    let onChange: () -> Void
+    @AppStorage(TouchDeckCellMetrics.runtimeCellWidthKey) private var runtimeCellWidth = TouchDeckCellMetrics.defaultRuntimeCellWidth
+
+    private var clampedCellWidth: Double {
+        TouchDeckCellMetrics.clampedRuntimeCellWidth(runtimeCellWidth)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Cell Size")
+                        .font(.headline)
+                    Text("Adjust the real Touch Bar cell width without changing code.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Text("\(Int(clampedCellWidth.rounded())) px / cell")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.white)
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(.black.opacity(0.08), lineWidth: 1)
+                    )
+            }
+
+            HStack(spacing: 12) {
+                Image(systemName: "minus")
+                    .foregroundStyle(.secondary)
+
+                Slider(
+                    value: Binding(
+                        get: { clampedCellWidth },
+                        set: { newValue in
+                            runtimeCellWidth = TouchDeckCellMetrics.clampedRuntimeCellWidth(newValue)
+                            TouchDeckCellMetrics.runtimeCellWidth = runtimeCellWidth
+                            onChange()
+                        }
+                    ),
+                    in: TouchDeckCellMetrics.minimumRuntimeCellWidth...TouchDeckCellMetrics.maximumRuntimeCellWidth,
+                    step: 1
+                )
+
+                Image(systemName: "plus")
+                    .foregroundStyle(.secondary)
+
+                Button("Reset") {
+                    runtimeCellWidth = TouchDeckCellMetrics.defaultRuntimeCellWidth
+                    TouchDeckCellMetrics.runtimeCellWidth = runtimeCellWidth
+                    onChange()
+                }
+            }
+
+            HStack(spacing: 10) {
+                cellPreview(label: "1 cell", cells: 1)
+                cellPreview(label: "2 cells", cells: 2)
+                cellPreview(label: "3 cells", cells: 3)
+            }
+        }
+        .padding(18)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.black.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 16, y: 8)
+        .onAppear {
+            runtimeCellWidth = clampedCellWidth
+        }
+    }
+
+    private func cellPreview(label: String, cells: Int) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(red: 0.055, green: 0.055, blue: 0.065))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(.white.opacity(0.16))
+                        .padding(3)
+                )
+                .frame(width: CGFloat(cells) * CGFloat(TouchDeckCellMetrics.studioCellWidth), height: 24)
+
+            Text(label)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
         }
     }
 }

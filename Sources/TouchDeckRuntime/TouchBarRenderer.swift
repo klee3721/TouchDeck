@@ -626,7 +626,10 @@ private final class TouchDeckPercentWidgetView: NSControl {
 }
 
 private enum TouchDeckKeyMetrics {
-    static let cellWidth: CGFloat = 38
+    static var cellWidth: CGFloat {
+        CGFloat(TouchDeckCellMetrics.runtimeCellWidth)
+    }
+
     static let interCellGap: CGFloat = 4
     static let height: CGFloat = 30
     static let cornerRadius: CGFloat = 7

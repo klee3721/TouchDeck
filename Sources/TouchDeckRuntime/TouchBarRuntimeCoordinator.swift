@@ -71,6 +71,10 @@ public final class TouchBarRuntimeCoordinator {
         globalPresenter.represent()
     }
 
+    public func reloadPresentedTouchBars() {
+        refreshPresentedTouchBars()
+    }
+
     private func refreshPresentedTouchBars() {
         let touchBar = renderer.makeTouchBar()
         fallbackPresenter.update(touchBar: touchBar)
