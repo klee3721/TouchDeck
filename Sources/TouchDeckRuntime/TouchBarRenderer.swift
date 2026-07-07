@@ -299,6 +299,7 @@ private final class TouchDeckSpacerView: NSView {
 private final class TouchDeckButtonView: NSControl {
     private let imageView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
+    private let clickButton = NSButton()
     private let onClick: () -> Void
     private var widthConstraint: NSLayoutConstraint?
 
@@ -318,11 +319,23 @@ private final class TouchDeckButtonView: NSControl {
         titleLabel.lineBreakMode = .byClipping
         titleLabel.maximumNumberOfLines = 1
 
+        clickButton.translatesAutoresizingMaskIntoConstraints = false
+        clickButton.isBordered = false
+        clickButton.isTransparent = true
+        clickButton.title = ""
+        clickButton.target = self
+        clickButton.action = #selector(handleClick)
+
         addSubview(imageView)
         addSubview(titleLabel)
+        addSubview(clickButton)
 
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: TouchDeckKeyMetrics.height)
+            heightAnchor.constraint(equalToConstant: TouchDeckKeyMetrics.height),
+            clickButton.leadingAnchor.constraint(equalTo: leadingAnchor),
+            clickButton.trailingAnchor.constraint(equalTo: trailingAnchor),
+            clickButton.topAnchor.constraint(equalTo: topAnchor),
+            clickButton.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
         update(config: config, snapshot: snapshot)
@@ -376,13 +389,17 @@ private final class TouchDeckButtonView: NSControl {
         needsLayout = true
     }
 
-    override func mouseDown(with event: NSEvent) {
+    @objc private func handleClick() {
         setTouchDeckKeyPressed(true)
         onClick()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
             self?.setTouchDeckKeyPressed(false)
         }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        handleClick()
     }
 
     private static func iconSize(for config: TouchBarItemConfig) -> CGFloat {
@@ -544,6 +561,7 @@ private final class TouchDeckSliderView: NSView {
 
 private final class TouchDeckPercentWidgetView: NSControl {
     private let valueLabel = NSTextField(labelWithString: "")
+    private let clickButton = NSButton()
     private let onClick: () -> Void
     private var widthConstraint: NSLayoutConstraint?
 
@@ -560,10 +578,22 @@ private final class TouchDeckPercentWidgetView: NSControl {
         valueLabel.lineBreakMode = .byClipping
         valueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
+        clickButton.translatesAutoresizingMaskIntoConstraints = false
+        clickButton.isBordered = false
+        clickButton.isTransparent = true
+        clickButton.title = ""
+        clickButton.target = self
+        clickButton.action = #selector(handleClick)
+
         addSubview(valueLabel)
+        addSubview(clickButton)
 
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: TouchDeckKeyMetrics.height)
+            heightAnchor.constraint(equalToConstant: TouchDeckKeyMetrics.height),
+            clickButton.leadingAnchor.constraint(equalTo: leadingAnchor),
+            clickButton.trailingAnchor.constraint(equalTo: trailingAnchor),
+            clickButton.topAnchor.constraint(equalTo: topAnchor),
+            clickButton.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
         update(config: config, snapshot: snapshot)
@@ -596,13 +626,17 @@ private final class TouchDeckPercentWidgetView: NSControl {
         NSLayoutConstraint.activate(nextConstraints)
     }
 
-    override func mouseDown(with event: NSEvent) {
+    @objc private func handleClick() {
         setTouchDeckKeyPressed(true)
         onClick()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
             self?.setTouchDeckKeyPressed(false)
         }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        handleClick()
     }
 
     private static func percentColor(for progress: Double?) -> NSColor {
