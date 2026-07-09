@@ -10,8 +10,6 @@ import TouchDeckCore
 
 @MainActor
 public final class ActionDispatcher {
-    private typealias CoreDisplayGetBrightness = @convention(c) (CGDirectDisplayID) -> Double
-    private typealias CoreDisplaySetBrightness = @convention(c) (CGDirectDisplayID, Double) -> Void
     private typealias DisplayServicesGetBrightness = @convention(c) (CGDirectDisplayID, UnsafeMutablePointer<Float>) -> Int32
     private typealias DisplayServicesSetBrightness = @convention(c) (CGDirectDisplayID, Float) -> Int32
 
@@ -364,7 +362,7 @@ public final class ActionDispatcher {
     private func setDisplayBrightness(_ ratio: Double) {
         let clampedRatio = min(max(ratio, 0), 1)
 
-        if setCoreDisplayUserBrightness(clampedRatio) || setDisplayServicesBrightness(clampedRatio) {
+        if setDisplayServicesBrightness(clampedRatio) {
             cachedIORegBrightness = (Date(), clampedRatio)
             lastBrightnessFallbackStep = nil
             pendingBrightnessFallbackStep = nil
@@ -457,40 +455,10 @@ public final class ActionDispatcher {
     }
 
     private func currentDisplayBrightness() -> Double? {
-        currentCoreDisplayUserBrightness()
-            ?? currentDisplayServicesBrightness()
+        currentDisplayServicesBrightness()
             ?? currentIODisplayBrightness()
             ?? currentBacklightBrightnessRatio()
             ?? currentIORegBacklightBrightnessRatio()
-    }
-
-    private func currentCoreDisplayUserBrightness() -> Double? {
-        guard
-            let symbol = displayServicesSymbol(named: "CoreDisplay_Display_GetUserBrightness")
-        else {
-            return nil
-        }
-
-        let getBrightness = unsafeBitCast(symbol, to: CoreDisplayGetBrightness.self)
-        let value = getBrightness(CGMainDisplayID())
-
-        guard value.isFinite else {
-            return nil
-        }
-
-        return min(max(value, 0), 1)
-    }
-
-    private func setCoreDisplayUserBrightness(_ ratio: Double) -> Bool {
-        guard
-            let symbol = displayServicesSymbol(named: "CoreDisplay_Display_SetUserBrightness")
-        else {
-            return false
-        }
-
-        let setBrightness = unsafeBitCast(symbol, to: CoreDisplaySetBrightness.self)
-        setBrightness(CGMainDisplayID(), min(max(ratio, 0), 1))
-        return true
     }
 
     private func currentDisplayServicesBrightness() -> Double? {
