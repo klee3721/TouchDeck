@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import CoreAudio
+import CoreGraphics
 import Foundation
 import IOKit
 import IOKit.graphics
@@ -9,6 +10,11 @@ import TouchDeckCore
 
 @MainActor
 public final class ActionDispatcher {
+    private typealias CoreDisplayGetBrightness = @convention(c) (CGDirectDisplayID) -> Double
+    private typealias CoreDisplaySetBrightness = @convention(c) (CGDirectDisplayID, Double) -> Void
+    private typealias DisplayServicesGetBrightness = @convention(c) (CGDirectDisplayID, UnsafeMutablePointer<Float>) -> Int32
+    private typealias DisplayServicesSetBrightness = @convention(c) (CGDirectDisplayID, Float) -> Int32
+
     private let logger = Logger(subsystem: "com.touchdeck.app", category: "ActionDispatcher")
     private var didRequestAccessibilityPermission = false
     private var lastBrightnessFallbackStep: Int?
@@ -16,6 +22,7 @@ public final class ActionDispatcher {
     private var pendingBrightnessFallbackStep: Int?
     private var brightnessFallbackTask: Task<Void, Never>?
     private var cachedIORegBrightness: (date: Date, value: Double)?
+    private var displayServicesHandle: UnsafeMutableRawPointer?
     private let brightnessFallbackInterval: TimeInterval = 0.06
 
     public init() {}
@@ -357,7 +364,17 @@ public final class ActionDispatcher {
     private func setDisplayBrightness(_ ratio: Double) {
         let clampedRatio = min(max(ratio, 0), 1)
 
+        if setCoreDisplayUserBrightness(clampedRatio) || setDisplayServicesBrightness(clampedRatio) {
+            cachedIORegBrightness = (Date(), clampedRatio)
+            lastBrightnessFallbackStep = nil
+            pendingBrightnessFallbackStep = nil
+            brightnessFallbackTask?.cancel()
+            brightnessFallbackTask = nil
+            return
+        }
+
         if setIODisplayBrightness(clampedRatio) {
+            cachedIORegBrightness = (Date(), clampedRatio)
             lastBrightnessFallbackStep = nil
             pendingBrightnessFallbackStep = nil
             brightnessFallbackTask?.cancel()
@@ -440,9 +457,85 @@ public final class ActionDispatcher {
     }
 
     private func currentDisplayBrightness() -> Double? {
-        currentIODisplayBrightness()
+        currentCoreDisplayUserBrightness()
+            ?? currentDisplayServicesBrightness()
+            ?? currentIODisplayBrightness()
             ?? currentBacklightBrightnessRatio()
             ?? currentIORegBacklightBrightnessRatio()
+    }
+
+    private func currentCoreDisplayUserBrightness() -> Double? {
+        guard
+            let symbol = displayServicesSymbol(named: "CoreDisplay_Display_GetUserBrightness")
+        else {
+            return nil
+        }
+
+        let getBrightness = unsafeBitCast(symbol, to: CoreDisplayGetBrightness.self)
+        let value = getBrightness(CGMainDisplayID())
+
+        guard value.isFinite else {
+            return nil
+        }
+
+        return min(max(value, 0), 1)
+    }
+
+    private func setCoreDisplayUserBrightness(_ ratio: Double) -> Bool {
+        guard
+            let symbol = displayServicesSymbol(named: "CoreDisplay_Display_SetUserBrightness")
+        else {
+            return false
+        }
+
+        let setBrightness = unsafeBitCast(symbol, to: CoreDisplaySetBrightness.self)
+        setBrightness(CGMainDisplayID(), min(max(ratio, 0), 1))
+        return true
+    }
+
+    private func currentDisplayServicesBrightness() -> Double? {
+        guard
+            let symbol = displayServicesSymbol(named: "DisplayServicesGetBrightness")
+        else {
+            return nil
+        }
+
+        let getBrightness = unsafeBitCast(symbol, to: DisplayServicesGetBrightness.self)
+        var brightness = Float(0)
+        let status = getBrightness(CGMainDisplayID(), &brightness)
+
+        guard status == 0 else {
+            return nil
+        }
+
+        return min(max(Double(brightness), 0), 1)
+    }
+
+    private func setDisplayServicesBrightness(_ ratio: Double) -> Bool {
+        guard
+            let symbol = displayServicesSymbol(named: "DisplayServicesSetBrightness")
+        else {
+            return false
+        }
+
+        let setBrightness = unsafeBitCast(symbol, to: DisplayServicesSetBrightness.self)
+        let status = setBrightness(CGMainDisplayID(), Float(min(max(ratio, 0), 1)))
+        return status == 0
+    }
+
+    private func displayServicesSymbol(named name: String) -> UnsafeMutableRawPointer? {
+        if displayServicesHandle == nil {
+            displayServicesHandle = dlopen(
+                "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices",
+                RTLD_NOW
+            )
+        }
+
+        guard let handle = displayServicesHandle else {
+            return nil
+        }
+
+        return dlsym(handle, name)
     }
 
     private func currentBacklightBrightnessStep() -> Int? {
