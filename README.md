@@ -60,7 +60,13 @@ Some actions require system permissions:
 - Automation: AppleScript, volume slider behavior, and app-control actions.
 - Location/Network: optional weather widgets.
 
-## Build And Run
+## Download
+
+End users should download the latest `TouchDeck-*.dmg` from [GitHub Releases](https://github.com/klee3721/TouchDeck/releases), open the DMG, and drag `TouchDeck.app` into Applications.
+
+The source code is intended for developers who want to inspect, modify, or fork the project.
+
+## Build From Source
 
 Run tests:
 
@@ -98,12 +104,24 @@ Verify local code signing:
 codesign --verify --deep --strict --verbose=2 dist/TouchDeck.app
 ```
 
+Package a local `.dmg` installer:
+
+```bash
+./scripts/package_dmg.sh
+```
+
+The DMG is created at:
+
+```text
+dist/TouchDeck-0.1.0.dmg
+```
+
 ## Developer ID Signing
 
 By default, the packaging script uses ad-hoc signing for development. To sign with a Developer ID identity:
 
 ```bash
-CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./scripts/package_app.sh
+CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./scripts/package_dmg.sh
 ```
 
 See the release checklist in [docs/distribution.md](docs/distribution.md).
