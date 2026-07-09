@@ -15,6 +15,7 @@ public final class ActionDispatcher {
     private var lastBrightnessFallbackDate = Date.distantPast
     private var pendingBrightnessFallbackStep: Int?
     private var brightnessFallbackTask: Task<Void, Never>?
+    private var cachedIORegBrightness: (date: Date, value: Double)?
     private let brightnessFallbackInterval: TimeInterval = 0.06
 
     public init() {}
@@ -439,7 +440,9 @@ public final class ActionDispatcher {
     }
 
     private func currentDisplayBrightness() -> Double? {
-        currentIODisplayBrightness() ?? currentBacklightBrightnessRatio()
+        currentIODisplayBrightness()
+            ?? currentBacklightBrightnessRatio()
+            ?? currentIORegBacklightBrightnessRatio()
     }
 
     private func currentBacklightBrightnessStep() -> Int? {
@@ -551,6 +554,75 @@ public final class ActionDispatcher {
         return bestRatio
     }
 
+    private func currentIORegBacklightBrightnessRatio() -> Double? {
+        if let cachedIORegBrightness,
+           Date().timeIntervalSince(cachedIORegBrightness.date) < 0.75 {
+            return cachedIORegBrightness.value
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/ioreg")
+        process.arguments = ["-r", "-c", "AppleARMBacklight", "-w0"]
+
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = Pipe()
+
+        do {
+            try process.run()
+        } catch {
+            logger.debug("Read brightness with ioreg failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+
+        process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            return nil
+        }
+
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        guard let text = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+
+        guard let ratio = bestBrightnessRatio(in: text) else {
+            return nil
+        }
+
+        cachedIORegBrightness = (Date(), ratio)
+        return ratio
+    }
+
+    private func bestBrightnessRatio(in text: String) -> Double? {
+        var bestRatio: Double?
+        let pattern = #""brightness"=\{"min"=\d+,"max"=(\d+),"value"=(\d+)\}"#
+
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return nil
+        }
+
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        regex.enumerateMatches(in: text, range: range) { match, _, _ in
+            guard
+                let match,
+                match.numberOfRanges >= 3,
+                let maxRange = Range(match.range(at: 1), in: text),
+                let valueRange = Range(match.range(at: 2), in: text),
+                let maxValue = Double(text[maxRange]),
+                let value = Double(text[valueRange]),
+                maxValue > 0
+            else {
+                return
+            }
+
+            let ratio = min(max(value / maxValue, 0), 1)
+            bestRatio = max(bestRatio ?? ratio, ratio)
+        }
+
+        return bestRatio
+    }
+
     private func setIODisplayBrightness(_ ratio: Double) -> Bool {
         var iterator: io_iterator_t = 0
         let result = IOServiceGetMatchingServices(
@@ -629,7 +701,7 @@ public final class ActionDispatcher {
 
     private func currentOutputVolume() -> Double? {
         guard let defaultDevice = defaultOutputDevice() else {
-            return nil
+            return currentAppleScriptOutputVolume()
         }
 
         var volumeAddress = AudioObjectPropertyAddress(
@@ -651,10 +723,26 @@ public final class ActionDispatcher {
         }
 
         guard !channelVolumes.isEmpty else {
-            return nil
+            return currentAppleScriptOutputVolume()
         }
 
         return channelVolumes.reduce(0, +) / Double(channelVolumes.count)
+    }
+
+    private func currentAppleScriptOutputVolume() -> Double? {
+        var errorInfo: NSDictionary?
+        let result = NSAppleScript(source: "output volume of (get volume settings)")?
+            .executeAndReturnError(&errorInfo)
+
+        if let errorInfo {
+            logger.debug("Read output volume with AppleScript failed: \(String(describing: errorInfo), privacy: .public)")
+        }
+
+        guard let value = result?.int32Value else {
+            return nil
+        }
+
+        return min(max(Double(value) / 100, 0), 1)
     }
 
     private func outputVolume(
