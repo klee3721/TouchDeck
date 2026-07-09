@@ -10,6 +10,7 @@ public final class TouchBarRenderer: NSObject, NSTouchBarDelegate {
     private let statsProvider: SystemStatsProvider
     private let weatherProvider: OpenMeteoWeatherProvider
     private var widgetUpdateHandlers: [TouchBarItemConfig.ID: (TouchBarItemConfig, WidgetSnapshot?) -> Void] = [:]
+    private var sliderUpdateHandlers: [TouchBarItemConfig.ID: (Double) -> Void] = [:]
     private var widgetSnapshots: [TouchBarItemConfig.ID: WidgetSnapshot] = [:]
     private var lastWeatherRefresh: [TouchBarItemConfig.ID: Date] = [:]
     private var dynamicRefreshTimer: Timer?
@@ -37,6 +38,7 @@ public final class TouchBarRenderer: NSObject, NSTouchBarDelegate {
 
     public func makeTouchBar() -> NSTouchBar {
         widgetUpdateHandlers.removeAll()
+        sliderUpdateHandlers.removeAll()
         configureDynamicRefreshTimer()
 
         let touchBar = NSTouchBar()
@@ -66,13 +68,18 @@ public final class TouchBarRenderer: NSObject, NSTouchBarDelegate {
         }
 
         if let sliderActionId = itemConfig.sliderSystemActionId {
-            customItem.view = TouchDeckSliderView(
+            let sliderView = TouchDeckSliderView(
                 config: itemConfig,
                 actionId: sliderActionId,
+                initialValue: actionDispatcher.currentSystemSliderValue(actionId: sliderActionId) ?? 0.5,
                 onChange: { [weak self] value in
                     self?.actionDispatcher.dispatchSystemSlider(actionId: sliderActionId, value: value)
                 }
             )
+            customItem.view = sliderView
+            sliderUpdateHandlers[itemConfig.id] = { [weak sliderView] value in
+                sliderView?.updateSystemValue(value)
+            }
             return customItem
         }
 
@@ -174,7 +181,7 @@ public final class TouchBarRenderer: NSObject, NSTouchBarDelegate {
     private func configureDynamicRefreshTimer() {
         dynamicRefreshTimer?.invalidate()
 
-        let hasDynamicItems = currentPage()?.items.contains { item in
+        let hasDynamicWidgets = currentPage()?.items.contains { item in
             switch item.type {
             case .widget:
                 true
@@ -182,16 +189,40 @@ public final class TouchBarRenderer: NSObject, NSTouchBarDelegate {
                 false
             }
         } ?? false
+        let hasSliders = currentPage()?.items.contains { $0.sliderSystemActionId != nil } ?? false
 
-        guard hasDynamicItems else {
+        guard hasDynamicWidgets || hasSliders else {
             dynamicRefreshTimer = nil
             return
         }
 
-        dynamicRefreshTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+        let interval = hasSliders ? 0.5 : 5
+        dynamicRefreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.refreshWidgetViews()
+                self?.refreshDynamicViews()
             }
+        }
+    }
+
+    private func refreshDynamicViews() {
+        refreshWidgetViews()
+        refreshSliderViews()
+    }
+
+    private func refreshSliderViews() {
+        guard let page = currentPage() else {
+            return
+        }
+
+        for item in page.items {
+            guard
+                let sliderActionId = item.sliderSystemActionId,
+                let value = actionDispatcher.currentSystemSliderValue(actionId: sliderActionId)
+            else {
+                continue
+            }
+
+            sliderUpdateHandlers[item.id]?(value)
         }
     }
 
@@ -498,19 +529,26 @@ private final class TouchDeckSliderCell: NSSliderCell {
 private final class TouchDeckSliderView: NSView {
     private let actionId: String
     private let onChange: (Double) -> Void
+    private let slider: NSSlider
+    private var isUserInteracting = false
 
-    init(config: TouchBarItemConfig, actionId: String, onChange: @escaping (Double) -> Void) {
+    init(
+        config: TouchBarItemConfig,
+        actionId: String,
+        initialValue: Double,
+        onChange: @escaping (Double) -> Void
+    ) {
         self.actionId = actionId
         self.onChange = onChange
+        self.slider = NSSlider(frame: .zero)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         applyTouchDeckKeyBackground()
 
-        let slider = NSSlider(frame: .zero)
         slider.cell = TouchDeckSliderCell(knobSymbolName: Self.knobSymbolName(for: actionId))
         slider.minValue = 0
         slider.maxValue = 1
-        slider.doubleValue = 0.5
+        slider.doubleValue = Self.clamped(initialValue)
         slider.target = self
         slider.action = #selector(handleSliderChange(_:))
         slider.isContinuous = true
@@ -547,7 +585,20 @@ private final class TouchDeckSliderView: NSView {
     }
 
     @objc private func handleSliderChange(_ sender: NSSlider) {
+        isUserInteracting = true
         onChange(sender.doubleValue)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.isUserInteracting = false
+        }
+    }
+
+    func updateSystemValue(_ value: Double) {
+        guard !isUserInteracting else {
+            return
+        }
+
+        slider.doubleValue = Self.clamped(value)
     }
 
     private static func knobSymbolName(for actionId: String) -> String {
@@ -559,6 +610,10 @@ private final class TouchDeckSliderView: NSView {
         default:
             return "circle.fill"
         }
+    }
+
+    private static func clamped(_ value: Double) -> Double {
+        min(max(value, 0), 1)
     }
 }
 

@@ -53,6 +53,17 @@ public final class ActionDispatcher {
         }
     }
 
+    public func currentSystemSliderValue(actionId: String) -> Double? {
+        switch actionId {
+        case "volumeSlider":
+            return currentOutputVolume()
+        case "brightnessSlider":
+            return currentDisplayBrightness()
+        default:
+            return nil
+        }
+    }
+
     private func activateOrLaunchApp(_ config: AppButtonConfig) {
         let appURL = applicationURL(
             bundleIdentifier: config.bundleIdentifier,
@@ -427,7 +438,19 @@ public final class ActionDispatcher {
         lastBrightnessFallbackDate = Date()
     }
 
+    private func currentDisplayBrightness() -> Double? {
+        currentIODisplayBrightness() ?? currentBacklightBrightnessRatio()
+    }
+
     private func currentBacklightBrightnessStep() -> Int? {
+        guard let ratio = currentBacklightBrightnessRatio() else {
+            return nil
+        }
+
+        return Int((ratio * 16).rounded())
+    }
+
+    private func currentBacklightBrightnessRatio() -> Double? {
         var iterator: io_iterator_t = 0
         let result = IOServiceGetMatchingServices(
             kIOMainPortDefault,
@@ -478,7 +501,54 @@ public final class ActionDispatcher {
             return nil
         }
 
-        return Int((bestRatio * 16).rounded())
+        return bestRatio
+    }
+
+    private func currentIODisplayBrightness() -> Double? {
+        var iterator: io_iterator_t = 0
+        let result = IOServiceGetMatchingServices(
+            kIOMainPortDefault,
+            IOServiceMatching("IODisplayConnect"),
+            &iterator
+        )
+
+        guard result == kIOReturnSuccess else {
+            return nil
+        }
+
+        defer {
+            IOObjectRelease(iterator)
+        }
+
+        var bestRatio: Double?
+
+        while true {
+            let service = IOIteratorNext(iterator)
+            guard service != IO_OBJECT_NULL else {
+                break
+            }
+
+            defer {
+                IOObjectRelease(service)
+            }
+
+            var brightness = Float(0)
+            let status = IODisplayGetFloatParameter(
+                service,
+                0,
+                kIODisplayBrightnessKey as CFString,
+                &brightness
+            )
+
+            guard status == kIOReturnSuccess else {
+                continue
+            }
+
+            let ratio = min(max(Double(brightness), 0), 1)
+            bestRatio = max(bestRatio ?? ratio, ratio)
+        }
+
+        return bestRatio
     }
 
     private func setIODisplayBrightness(_ ratio: Double) -> Bool {
@@ -524,24 +594,7 @@ public final class ActionDispatcher {
     }
 
     private func setCoreAudioOutputVolume(_ ratio: Double) -> Bool {
-        var defaultDevice = AudioObjectID(0)
-        var propertySize = UInt32(MemoryLayout<AudioObjectID>.size)
-        var deviceAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-
-        let deviceStatus = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject),
-            &deviceAddress,
-            0,
-            nil,
-            &propertySize,
-            &defaultDevice
-        )
-
-        guard deviceStatus == noErr, defaultDevice != kAudioObjectUnknown else {
+        guard let defaultDevice = defaultOutputDevice() else {
             return false
         }
 
@@ -572,6 +625,80 @@ public final class ActionDispatcher {
         }
 
         return didSetAnyChannel
+    }
+
+    private func currentOutputVolume() -> Double? {
+        guard let defaultDevice = defaultOutputDevice() else {
+            return nil
+        }
+
+        var volumeAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyVolumeScalar,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        if let volume = outputVolume(device: defaultDevice, address: &volumeAddress) {
+            return volume
+        }
+
+        var channelVolumes: [Double] = []
+        for channel in 1...2 {
+            volumeAddress.mElement = AudioObjectPropertyElement(channel)
+            if let volume = outputVolume(device: defaultDevice, address: &volumeAddress) {
+                channelVolumes.append(volume)
+            }
+        }
+
+        guard !channelVolumes.isEmpty else {
+            return nil
+        }
+
+        return channelVolumes.reduce(0, +) / Double(channelVolumes.count)
+    }
+
+    private func outputVolume(
+        device: AudioObjectID,
+        address: inout AudioObjectPropertyAddress
+    ) -> Double? {
+        guard AudioObjectHasProperty(device, &address) else {
+            return nil
+        }
+
+        var volume = Float32(0)
+        var volumeSize = UInt32(MemoryLayout<Float32>.size)
+        let status = AudioObjectGetPropertyData(device, &address, 0, nil, &volumeSize, &volume)
+
+        guard status == noErr else {
+            return nil
+        }
+
+        return min(max(Double(volume), 0), 1)
+    }
+
+    private func defaultOutputDevice() -> AudioObjectID? {
+        var defaultDevice = AudioObjectID(0)
+        var propertySize = UInt32(MemoryLayout<AudioObjectID>.size)
+        var deviceAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        let deviceStatus = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &deviceAddress,
+            0,
+            nil,
+            &propertySize,
+            &defaultDevice
+        )
+
+        guard deviceStatus == noErr, defaultDevice != kAudioObjectUnknown else {
+            return nil
+        }
+
+        return defaultDevice
     }
 
     private func runMacOSShortcut(_ name: String?) {
