@@ -53,9 +53,17 @@ final class TouchDeckAppDelegate: NSObject, NSApplicationDelegate {
                 self?.profile = selectedProfile
                 self?.runtimeCoordinator?.update(profile: selectedProfile)
             }
+            windowController?.onWindowClosed = { [weak self] in
+                self?.hideDockIconForMenuBarMode()
+            }
         }
 
+        NSApp.setActivationPolicy(.regular)
         windowController?.showStudioWindow()
+    }
+
+    private func hideDockIconForMenuBarMode() {
+        NSApp.setActivationPolicy(.accessory)
     }
 
     @objc private func quit() {
@@ -198,6 +206,7 @@ final class TouchDeckAppDelegate: NSObject, NSApplicationDelegate {
 @MainActor
 final class TouchDeckWindowController: NSWindowController {
     private let runtimeCoordinator: TouchBarRuntimeCoordinator?
+    var onWindowClosed: (() -> Void)?
 
     init(
         profile: TouchBarProfile,
@@ -223,6 +232,7 @@ final class TouchDeckWindowController: NSWindowController {
         window.center()
 
         super.init(window: window)
+        window.delegate = self
 
         window.contentViewController = NSHostingController(
             rootView: StudioRootView(
@@ -274,5 +284,11 @@ final class TouchDeckWindowController: NSWindowController {
         DispatchQueue.main.async {
             NSApp.activate(ignoringOtherApps: true)
         }
+    }
+}
+
+extension TouchDeckWindowController: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        onWindowClosed?()
     }
 }
